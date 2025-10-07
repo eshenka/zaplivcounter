@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Счетчик заплывов</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Счетчик участников заплывов</h1>
+        
+        <div class="input-section">
+            <label for="eventData">Отчёты:</label>
+            <textarea id="eventData" placeholder="Заплывчииииик"></textarea>
+            <div class="controls">
+                <button id="processBtn">Обработать данные</button>
+                <button id="clearBtn">Очистить</button>
+                <div class="checkbox-container">
+                    <input type="checkbox" id="activityWeek" name="activityWeek">
+                    <label for="activityWeek">Неделя активности</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="results-section">
+            <h2>БА, БМ:</h2>
+            <div class="table-container">
+                <table id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>Имена</th>
+                            <th>БА</th>
+                            <th>БМ</th>
+                            <th>ИС</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
