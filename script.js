@@ -44,23 +44,57 @@ class SwimEventParser {
     }
 
     parseEvent(eventText) {
-        const lines = eventText.split('\n');
+        const lines = eventText.split('\n').map(l => l.trim()).filter(Boolean);
+        const header = lines[0];
+
+        if (header.startsWith('Котячий заплыв')) {
+            this.parseCatSwim(lines);
+            return;
+        }
+
+        this.parseRegularSwim(lines);
+    }
+
+    parseRegularSwim(lines) {
         const processedInThisEvent = new Set();
-        
+
         lines.forEach(line => {
-            line = line.trim();
-            
-            if (line.includes('|') && !line.includes(':')) {
-                return;
-            }
-            
+            if (line.includes('|') && !line.includes(':')) return;
+
             if (line.includes(':')) {
                 const colonIndex = line.indexOf(':');
                 const roleType = line.substring(0, colonIndex).trim();
                 const participantsText = line.substring(colonIndex + 1).trim();
-                
+
                 const isConductor = roleType === 'Проводящий';
+                const isKittenConductor = roleType === 'Сопровождающий';
                 this.parseParticipants(participantsText, isConductor, processedInThisEvent);
+            }
+        });
+    }
+
+    parseCatSwim(lines) {
+        const processedInThisEvent = new Set();
+
+        lines.forEach(line => {
+            if (!line.includes(':')) return;
+
+            const [role, participantsText] = line.split(':').map(s => s.trim());
+
+            if (role === 'Сопровождающие') {
+                this.parseKittenParticipants(
+                    participantsText,
+                    true,
+                    processedInThisEvent
+                );
+            }
+
+            if (role === 'Участники') {
+                this.parseKittenParticipants(
+                    participantsText,
+                    false,
+                    processedInThisEvent
+                );
             }
         });
     }
@@ -110,37 +144,81 @@ class SwimEventParser {
         
         if (!this.participantStats.has(name)) {
             this.participantStats.set(name, {
+                totalConductions: 0,
                 totalParticipations: 0,
-                bmPoints: 0,
                 participationsWithInfo: 0,
-                conductorBonus: 0
+                kittenConductions: 0,
+                kittenParticipations: 0
             });
         }
         
         const stats = this.participantStats.get(name);
         
         if (additionalInfo === 'ИС') {
+            stats.totalConductions += 0;
             stats.totalParticipations += 0;
-            stats.bmPoints += 0;
             stats.participationsWithInfo += 1;
             return;
         }
         
         if (isConductor) {
-            stats.totalParticipations += 2;
+            stats.totalConductions += 1;
         } else {
-            stats.totalParticipations += 1;
+            stats.totalConductions += 0;
         }
         
         if (isConductor) {
-            stats.bmPoints += 1.5;
+            stats.totalParticipations += 0;
         } else {
-            stats.bmPoints += 1;
+            stats.totalParticipations += 1;
         }
         
         if (hasAdditionalInfo && additionalInfo !== 'ИС') {
             stats.participationsWithInfo++;
         }
+    }
+
+    processKittenParticipant(participantText, isKittenConductor, processedInThisEvent) {
+        const lastSlashIndex = participantText.lastIndexOf('/');
+        if (lastSlashIndex === -1) return;
+
+        const name = participantText.substring(0, lastSlashIndex).trim();
+
+        if (processedInThisEvent.has(name)) return;
+        processedInThisEvent.add(name);
+
+        if (!this.participantStats.has(name)) {
+            this.participantStats.set(name, {
+                totalConductions: 0,
+                totalParticipations: 0,
+                participationsWithInfo: 0,
+                kittenConductions: 0,
+                kittenParticipations: 0
+            });
+        }
+
+        const stats = this.participantStats.get(name);
+
+        if (isKittenConductor) {
+            stats.kittenConductions += 1;
+        } else {
+            stats.kittenParticipations += 1;
+        }
+    }
+
+    parseKittenParticipants(participantsText, isKittenConductor, processedInThisEvent) {
+        const participants = participantsText.split(',');
+
+        participants.forEach(p => {
+            const participant = p.trim();
+            if (participant) {
+                this.processKittenParticipant(
+                    participant,
+                    isKittenConductor,
+                    processedInThisEvent
+                );
+            }
+        });
     }
 
     displayResults() {
@@ -150,7 +228,7 @@ class SwimEventParser {
         if (this.participantStats.size === 0) {
             const row = tableBody.insertRow();
             const cell = row.insertCell();
-            cell.colSpan = 4;
+            cell.colSpan = 6;
             cell.className = 'empty-state';
             cell.textContent = 'Нет данных для отображения';
             return;
@@ -161,7 +239,7 @@ class SwimEventParser {
         const multiplier = isActivityWeek ? 2 : 1;
         
         const sortedParticipants = Array.from(this.participantStats.entries())
-            .sort((a, b) => (b[1].bmPoints * multiplier) - (a[1].bmPoints * multiplier));
+            .sort((a, b) => a[0].localeCompare(b[0]));;
         
         sortedParticipants.forEach(([name, stats]) => {
             const row = tableBody.insertRow();
@@ -170,11 +248,17 @@ class SwimEventParser {
             nameCell.textContent = name;
             
             const baCell = row.insertCell();
-            baCell.textContent = stats.totalParticipations * multiplier;
+            baCell.textContent = stats.totalConductions * multiplier;
             
             const bmCell = row.insertCell();
-            bmCell.textContent = stats.bmPoints * multiplier;
+            bmCell.textContent = stats.totalParticipations * multiplier;
             
+            const ksCell = row.insertCell();
+            ksCell.textContent = stats.kittenConductions * multiplier;
+
+            const kpCell = row.insertCell();
+            kpCell.textContent = stats.kittenParticipations * multiplier;
+
             const isCell = row.insertCell();
             isCell.textContent = stats.participationsWithInfo;
         });
@@ -189,7 +273,7 @@ class SwimEventParser {
         const tableBody = document.querySelector('#resultsTable tbody');
         const row = tableBody.insertRow();
         const cell = row.insertCell();
-        cell.colSpan = 4;
+        cell.colSpan = 6;
         cell.className = 'empty-state';
         cell.textContent = 'Введите данные о заплывах для получения статистики';
     }
@@ -201,7 +285,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableBody = document.querySelector('#resultsTable tbody');
     const row = tableBody.insertRow();
     const cell = row.insertCell();
-    cell.colSpan = 4;
+    cell.colSpan = 6;
     cell.className = 'empty-state';
     cell.textContent = 'Введите данные о заплывах для получения статистики';
 });
