@@ -52,7 +52,12 @@ class SwimEventParser {
             return;
         }
 
-        this.parseRegularSwim(lines);
+        if (header.startsWith('Заплыв на дно')) {
+            this.parseRegularSwim(lines);
+            return;
+        }
+
+        // this.parseRegularSwim(lines);
     }
 
     parseRegularSwim(lines) {
