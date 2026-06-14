@@ -72,7 +72,7 @@ class SwimEventParser {
                 const participantsText = line.substring(colonIndex + 1).trim();
 
                 const isConductor = roleType === 'Проводящий';
-                const isKittenConductor = roleType === 'Сопровождающий';
+                // const isKittenConductor = roleType === 'Сопровождающий';
                 this.parseParticipants(participantsText, isConductor, processedInThisEvent);
             }
         });
@@ -81,25 +81,57 @@ class SwimEventParser {
     parseCatSwim(lines) {
         const processedInThisEvent = new Set();
 
+        let conductors = [];
+        let participants = [];
+
         lines.forEach(line => {
             if (!line.includes(':')) return;
 
             const [role, participantsText] = line.split(':').map(s => s.trim());
 
             if (role === 'Сопровождающие') {
-                this.parseKittenParticipants(
-                    participantsText,
-                    true,
-                    processedInThisEvent
-                );
+                conductors = participantsText
+                    .split(',')
+                    .map(p => p.trim())
+                    .filter(Boolean);
             }
 
             if (role === 'Участники') {
-                this.parseKittenParticipants(
-                    participantsText,
-                    false,
-                    processedInThisEvent
-                );
+                participants = participantsText
+                    .split(',')
+                    .map(p => p.trim())
+                    .filter(Boolean);
+            }
+        });
+
+        conductors.forEach(conductor => {
+            this.processKittenParticipant(
+                conductor,
+                true,
+                processedInThisEvent
+            );
+        });
+
+        participants.forEach(participant => {
+            this.processKittenParticipant(
+                participant,
+                false,
+                processedInThisEvent
+            );
+        });
+
+        const participantCount = participants.length;
+
+        conductors.forEach(conductor => {
+            const lastSlashIndex = conductor.lastIndexOf('/');
+            if (lastSlashIndex === -1) return;
+
+            const name = conductor.substring(0, lastSlashIndex).trim();
+
+            const stats = this.participantStats.get(name);
+
+            if (stats) {
+                stats.kittenLedParticipants += participantCount;
             }
         });
     }
@@ -153,7 +185,8 @@ class SwimEventParser {
                 totalParticipations: 0,
                 participationsWithInfo: 0,
                 kittenConductions: 0,
-                kittenParticipations: 0
+                kittenParticipations: 0,
+                kittenLedParticipants: 0
             });
         }
         
@@ -198,7 +231,8 @@ class SwimEventParser {
                 totalParticipations: 0,
                 participationsWithInfo: 0,
                 kittenConductions: 0,
-                kittenParticipations: 0
+                kittenParticipations: 0,
+                kittenLedParticipants: 0
             });
         }
 
@@ -261,6 +295,9 @@ class SwimEventParser {
             const ksCell = row.insertCell();
             ksCell.textContent = stats.kittenConductions * multiplier;
 
+            const klCell = row.insertCell();
+            klCell.textContent = stats.kittenLedParticipants * multiplier;
+
             const kpCell = row.insertCell();
             kpCell.textContent = stats.kittenParticipations * multiplier;
 
@@ -278,7 +315,7 @@ class SwimEventParser {
         const tableBody = document.querySelector('#resultsTable tbody');
         const row = tableBody.insertRow();
         const cell = row.insertCell();
-        cell.colSpan = 6;
+        cell.colSpan = 7;
         cell.className = 'empty-state';
         cell.textContent = 'Введите данные о заплывах для получения статистики';
     }
