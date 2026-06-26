@@ -34,7 +34,7 @@ class SwimEventParser {
     }
 
     parseEvents(data) {
-        const events = data.split(/\n\s*\n|\n(?=\w+[^:]*\|)/);
+        const events = data.split(/\n(?=(?:Котячий заплыв|Заплыв на дно))/);
         
         events.forEach(event => {
             if (event.trim()) {
