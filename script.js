@@ -1,6 +1,7 @@
 class SwimEventParser {
     constructor() {
         this.participantStats = new Map();
+        this.processedReports = [];
         this.init();
     }
 
@@ -29,18 +30,73 @@ class SwimEventParser {
         }
 
         this.participantStats.clear();
+        this.processedReports = [];
         this.parseEvents(data);
         this.displayResults();
+        this.displayReports();
     }
 
     parseEvents(data) {
-        const events = data.split(/\n(?=(?:Котячий заплыв|Заплыв на дно))/);
+        const lines = data.split('\n');
+        let currentEvent = [];
+        let inValidEvent = false;
         
-        events.forEach(event => {
-            if (event.trim()) {
-                this.parseEvent(event.trim());
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            if (line.startsWith('Заплыв на дно') || line.startsWith('Котячий заплыв')) {
+                if (currentEvent.length > 0) {
+                    const eventText = currentEvent.join('\n');
+                    if (this.isValidEvent(eventText)) {
+                        this.processedReports.push(eventText);
+                        this.parseEvent(eventText);
+                    }
+                }
+                currentEvent = [line];
+                inValidEvent = true;
+            } else if (inValidEvent) {
+                const isNewReport = line.match(/^#\d+\s/);
+                if (isNewReport && currentEvent.length > 0) {
+                    const eventText = currentEvent.join('\n');
+                    if (this.isValidEvent(eventText)) {
+                        this.processedReports.push(eventText);
+                        this.parseEvent(eventText);
+                    }
+                    currentEvent = [line];
+                } else {
+                    currentEvent.push(line);
+                }
             }
-        });
+        }
+        
+        if (currentEvent.length > 0) {
+            const eventText = currentEvent.join('\n');
+            if (this.isValidEvent(eventText)) {
+                this.processedReports.push(eventText);
+                this.parseEvent(eventText);
+            }
+        }
+    }
+
+    isValidEvent(eventText) {
+        const lines = eventText.split('\n').map(l => l.trim()).filter(Boolean);
+        if (lines.length === 0) return false;
+        
+        const header = lines[0];
+        
+        if (header.startsWith('Заплыв на дно')) {
+            const hasConductor = lines.some(line => line.includes('Проводящий:'));
+            const hasParticipants = lines.some(line => line.includes('Участники:'));
+            return hasConductor && hasParticipants;
+        }
+        
+        if (header.startsWith('Котячий заплыв')) {
+            const hasConductors = lines.some(line => line.includes('Сопровождающие:'));
+            const hasParticipants = lines.some(line => line.includes('Участники:'));
+            return hasConductors && hasParticipants;
+        }
+        
+        return false;
     }
 
     parseEvent(eventText) {
@@ -56,8 +112,6 @@ class SwimEventParser {
             this.parseRegularSwim(lines);
             return;
         }
-
-        // this.parseRegularSwim(lines);
     }
 
     parseRegularSwim(lines) {
@@ -72,7 +126,6 @@ class SwimEventParser {
                 const participantsText = line.substring(colonIndex + 1).trim();
 
                 const isConductor = roleType === 'Проводящий';
-                // const isKittenConductor = roleType === 'Сопровождающий';
                 this.parseParticipants(participantsText, isConductor, processedInThisEvent);
             }
         });
@@ -245,21 +298,6 @@ class SwimEventParser {
         }
     }
 
-    parseKittenParticipants(participantsText, isKittenConductor, processedInThisEvent) {
-        const participants = participantsText.split(',');
-
-        participants.forEach(p => {
-            const participant = p.trim();
-            if (participant) {
-                this.processKittenParticipant(
-                    participant,
-                    isKittenConductor,
-                    processedInThisEvent
-                );
-            }
-        });
-    }
-
     displayResults() {
         const tableBody = document.querySelector('#resultsTable tbody');
         tableBody.innerHTML = '';
@@ -267,7 +305,7 @@ class SwimEventParser {
         if (this.participantStats.size === 0) {
             const row = tableBody.insertRow();
             const cell = row.insertCell();
-            cell.colSpan = 6;
+            cell.colSpan = 7;
             cell.className = 'empty-state';
             cell.textContent = 'Нет данных для отображения';
             return;
@@ -278,7 +316,7 @@ class SwimEventParser {
         const multiplier = isActivityWeek ? 2 : 1;
         
         const sortedParticipants = Array.from(this.participantStats.entries())
-            .sort((a, b) => a[0].localeCompare(b[0]));;
+            .sort((a, b) => a[0].localeCompare(b[0]));
         
         sortedParticipants.forEach(([name, stats]) => {
             const row = tableBody.insertRow();
@@ -306,12 +344,25 @@ class SwimEventParser {
         });
     }
 
+    displayReports() {
+        const reportsContainer = document.getElementById('reportsContent');
+        
+        if (this.processedReports.length === 0) {
+            reportsContainer.textContent = 'Нет обработанных отчётов';
+            return;
+        }
+        
+        reportsContainer.textContent = this.processedReports.join('\n\n');
+    }
+
     clearData() {
         document.getElementById('eventData').value = '';
         document.querySelector('#resultsTable tbody').innerHTML = '';
         this.participantStats.clear();
+        this.processedReports = [];
         
-        // Add empty state message
+        document.getElementById('reportsContent').textContent = 'Нет обработанных отчётов';
+        
         const tableBody = document.querySelector('#resultsTable tbody');
         const row = tableBody.insertRow();
         const cell = row.insertCell();
@@ -327,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tableBody = document.querySelector('#resultsTable tbody');
     const row = tableBody.insertRow();
     const cell = row.insertCell();
-    cell.colSpan = 6;
+    cell.colSpan = 7;
     cell.className = 'empty-state';
     cell.textContent = 'Введите данные о заплывах для получения статистики';
 });
