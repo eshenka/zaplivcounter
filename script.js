@@ -2,6 +2,7 @@ class SwimEventParser {
     constructor() {
         this.participantStats = new Map();
         this.processedReports = [];
+        this.underwaterParser = new UnderwaterHuntParser(); // ← добавить
         this.init();
     }
 
@@ -34,6 +35,9 @@ class SwimEventParser {
         this.parseEvents(data);
         this.displayResults();
         this.displayReports();
+
+        this.underwaterParser.parse(data);
+        this.underwaterParser.display();
     }
 
     parseEvents(data) {
@@ -455,7 +459,6 @@ class SwimEventParser {
 
         tableBody.innerHTML = '';
 
-        // Нет данных
         if (this.participantStats.size === 0) {
             const row = tableBody.insertRow();
             const cell = row.insertCell();
@@ -468,7 +471,6 @@ class SwimEventParser {
             return;
         }
 
-        // Сортировка по имени
         const sortedParticipants =
             Array.from(this.participantStats.entries())
                 .sort((a, b) =>
@@ -477,7 +479,7 @@ class SwimEventParser {
 
         sortedParticipants.forEach(([name, stats]) => {
             const row = tableBody.insertRow();
-            
+
             const checkCell = row.insertCell();
 
             checkCell.classList.add('check-column');
@@ -543,8 +545,6 @@ class SwimEventParser {
                 stats.participationsWithInfo;
         });
 
-        // Применяем состояние
-        // "Показывать ID"
         this.togglePlayerIdColumn();
     }
 
@@ -593,7 +593,8 @@ class SwimEventParser {
         ).textContent =
             'Нет обработанных отчётов';
 
-        // Создаём пустое состояние таблицы
+        this.underwaterParser.clear();
+
         const tableBody =
             document.querySelector(
                 '#resultsTable tbody'
@@ -610,11 +611,6 @@ class SwimEventParser {
             'Введите данные о заплывах для получения статистики';
     }
 }
-
-
-// =============================================
-// ЗАПУСК ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
-// =============================================
 
 document.addEventListener('DOMContentLoaded', () => {
     new SwimEventParser();
