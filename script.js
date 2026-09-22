@@ -8,18 +8,12 @@ class SwimEventParser {
     init() {
         const processBtn = document.getElementById('processBtn');
         const clearBtn = document.getElementById('clearBtn');
-        const activityWeekCheckbox = document.getElementById('activityWeek');
         const showPlayerIdCheckbox = document.getElementById('showPlayerId');
 
         processBtn.addEventListener('click', () => this.processData());
         clearBtn.addEventListener('click', () => this.clearData());
 
-        activityWeekCheckbox.addEventListener('change', () => {
-            if (this.participantStats.size > 0) {
-                this.displayResults();
-            }
-        });
-
+        // Показывать / скрывать столбец ID
         showPlayerIdCheckbox.addEventListener('change', () => {
             this.togglePlayerIdColumn();
         });
@@ -44,13 +38,17 @@ class SwimEventParser {
 
     parseEvents(data) {
         const lines = data.split('\n');
+
         let currentEvent = [];
         let inValidEvent = false;
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
 
-            if (line.startsWith('Заплыв на дно') || line.startsWith('Котячий заплыв')) {
+            if (
+                line.startsWith('Заплыв на дно') ||
+                line.startsWith('Котячий заплыв')
+            ) {
                 if (currentEvent.length > 0) {
                     const eventText = currentEvent.join('\n');
 
@@ -75,6 +73,7 @@ class SwimEventParser {
                     }
 
                     currentEvent = [line];
+
                 } else {
                     currentEvent.push(line);
                 }
@@ -97,20 +96,32 @@ class SwimEventParser {
             .map(l => l.trim())
             .filter(Boolean);
 
-        if (lines.length === 0) return false;
+        if (lines.length === 0) {
+            return false;
+        }
 
         const header = lines[0];
 
         if (header.startsWith('Заплыв на дно')) {
-            const hasConductor = lines.some(line => line.includes('Проводящий:'));
-            const hasParticipants = lines.some(line => line.includes('Участники:'));
+            const hasConductor = lines.some(
+                line => line.includes('Проводящий:')
+            );
+
+            const hasParticipants = lines.some(
+                line => line.includes('Участники:')
+            );
 
             return hasConductor && hasParticipants;
         }
 
         if (header.startsWith('Котячий заплыв')) {
-            const hasConductors = lines.some(line => line.includes('Сопровождающие:'));
-            const hasParticipants = lines.some(line => line.includes('Участники:'));
+            const hasConductors = lines.some(
+                line => line.includes('Сопровождающие:')
+            );
+
+            const hasParticipants = lines.some(
+                line => line.includes('Участники:')
+            );
 
             return hasConductors && hasParticipants;
         }
@@ -141,13 +152,20 @@ class SwimEventParser {
         const processedInThisEvent = new Set();
 
         lines.forEach(line => {
-            if (line.includes('|') && !line.includes(':')) return;
+            if (line.includes('|') && !line.includes(':')) {
+                return;
+            }
 
             if (line.includes(':')) {
                 const colonIndex = line.indexOf(':');
 
-                const roleType = line.substring(0, colonIndex).trim();
-                const participantsText = line.substring(colonIndex + 1).trim();
+                const roleType = line
+                    .substring(0, colonIndex)
+                    .trim();
+
+                const participantsText = line
+                    .substring(colonIndex + 1)
+                    .trim();
 
                 const isConductor = roleType === 'Проводящий';
 
@@ -167,7 +185,9 @@ class SwimEventParser {
         let participants = [];
 
         lines.forEach(line => {
-            if (!line.includes(':')) return;
+            if (!line.includes(':')) {
+                return;
+            }
 
             const [role, participantsText] = line
                 .split(':')
@@ -209,7 +229,9 @@ class SwimEventParser {
         conductors.forEach(conductor => {
             const lastSlashIndex = conductor.lastIndexOf('/');
 
-            if (lastSlashIndex === -1) return;
+            if (lastSlashIndex === -1) {
+                return;
+            }
 
             const name = conductor
                 .substring(0, lastSlashIndex)
@@ -250,34 +272,50 @@ class SwimEventParser {
     ) {
         const lastSlashIndex = participantText.lastIndexOf('/');
 
-        if (lastSlashIndex === -1) return;
+        if (lastSlashIndex === -1) {
+            return;
+        }
 
+        // Имя игрока
         const name = participantText
             .substring(0, lastSlashIndex)
             .trim();
 
+        // Всё после /
+        // Например: 12345
+        // или: 12345 (ИС)
         const idAndInfo = participantText
             .substring(lastSlashIndex + 1)
             .trim();
 
+        // Извлекаем ID
         const idMatch = idAndInfo.match(/^(\d+)/);
         const playerId = idMatch ? idMatch[1] : '';
 
+        // Дополнительная информация в скобках
         const hasAdditionalInfo = /\(.*\)/.test(idAndInfo);
 
         let additionalInfo = '';
 
         if (hasAdditionalInfo) {
             const match = idAndInfo.match(/\((.*?)\)/);
-            additionalInfo = match ? match[1].trim() : '';
+
+            additionalInfo = match
+                ? match[1].trim()
+                : '';
         }
 
+        // Гостей не учитываем
         if (additionalInfo === 'гость') {
             return;
         }
 
+        // Если игрок уже был обработан в этом событии
         if (processedInThisEvent.has(name)) {
-            if (hasAdditionalInfo && additionalInfo !== 'гость') {
+            if (
+                hasAdditionalInfo &&
+                additionalInfo !== 'гость'
+            ) {
                 const stats = this.participantStats.get(name);
 
                 if (additionalInfo === 'ИС') {
@@ -292,6 +330,7 @@ class SwimEventParser {
 
         processedInThisEvent.add(name);
 
+        // Создаём статистику игрока
         if (!this.participantStats.has(name)) {
             this.participantStats.set(name, {
                 playerId: playerId,
@@ -308,10 +347,12 @@ class SwimEventParser {
 
         const stats = this.participantStats.get(name);
 
+        // Если ID появился позже — сохраняем его
         if (!stats.playerId && playerId) {
             stats.playerId = playerId;
         }
 
+        // ИС
         if (additionalInfo === 'ИС') {
             stats.totalConductions += 0;
             stats.totalParticipations += 0;
@@ -320,19 +361,25 @@ class SwimEventParser {
             return;
         }
 
+        // Сбор заплыва
         if (isConductor) {
             stats.totalConductions += 1;
         } else {
             stats.totalConductions += 0;
         }
 
+        // Посещение заплыва
         if (isConductor) {
             stats.totalParticipations += 0;
         } else {
             stats.totalParticipations += 1;
         }
 
-        if (hasAdditionalInfo && additionalInfo !== 'ИС') {
+        // Дополнительная информация
+        if (
+            hasAdditionalInfo &&
+            additionalInfo !== 'ИС'
+        ) {
             stats.participationsWithInfo++;
         }
     }
@@ -342,14 +389,19 @@ class SwimEventParser {
         isKittenConductor,
         processedInThisEvent
     ) {
-        const lastSlashIndex = participantText.lastIndexOf('/');
+        const lastSlashIndex =
+            participantText.lastIndexOf('/');
 
-        if (lastSlashIndex === -1) return;
+        if (lastSlashIndex === -1) {
+            return;
+        }
 
+        // Имя
         const name = participantText
             .substring(0, lastSlashIndex)
             .trim();
 
+        // ID
         const idAndInfo = participantText
             .substring(lastSlashIndex + 1)
             .trim();
@@ -357,10 +409,14 @@ class SwimEventParser {
         const idMatch = idAndInfo.match(/^(\d+)/);
         const playerId = idMatch ? idMatch[1] : '';
 
-        if (processedInThisEvent.has(name)) return;
+        // Не обрабатываем одного человека дважды
+        if (processedInThisEvent.has(name)) {
+            return;
+        }
 
         processedInThisEvent.add(name);
 
+        // Создаём статистику
         if (!this.participantStats.has(name)) {
             this.participantStats.set(name, {
                 playerId: playerId,
@@ -377,86 +433,118 @@ class SwimEventParser {
 
         const stats = this.participantStats.get(name);
 
+        // Если ID ещё не был сохранён
         if (!stats.playerId && playerId) {
             stats.playerId = playerId;
         }
 
+        // Сопровождающий
         if (isKittenConductor) {
             stats.kittenConductions += 1;
-        } else {
+        }
+
+        // Участник
+        else {
             stats.kittenParticipations += 1;
         }
     }
 
     displayResults() {
-        const tableBody = document.querySelector('#resultsTable tbody');
+        const tableBody =
+            document.querySelector('#resultsTable tbody');
 
         tableBody.innerHTML = '';
 
+        // Нет данных
         if (this.participantStats.size === 0) {
             const row = tableBody.insertRow();
             const cell = row.insertCell();
 
-            cell.colSpan = 8;
+            cell.colSpan = 9;
             cell.className = 'empty-state';
-            cell.textContent = 'Нет данных для отображения';
+            cell.textContent =
+                'Нет данных для отображения';
 
             return;
         }
 
-        const activityWeekCheckbox =
-            document.getElementById('activityWeek');
-
-        const isActivityWeek = activityWeekCheckbox.checked;
-        const multiplier = isActivityWeek ? 2 : 1;
-
+        // Сортировка по имени
         const sortedParticipants =
             Array.from(this.participantStats.entries())
-                .sort((a, b) => a[0].localeCompare(b[0]));
+                .sort((a, b) =>
+                    a[0].localeCompare(b[0])
+                );
 
         sortedParticipants.forEach(([name, stats]) => {
             const row = tableBody.insertRow();
+            
+            const checkCell = row.insertCell();
 
-            // Имя
+            checkCell.classList.add('check-column');
+
+            const checkbox =
+                document.createElement('input');
+
+            checkbox.type = 'checkbox';
+            checkbox.className = 'row-check';
+            checkbox.title =
+                'Отметить как просмотренное';
+
+            checkbox.addEventListener('change', () => {
+                row.classList.toggle(
+                    'row-checked',
+                    checkbox.checked
+                );
+            });
+
+            checkCell.appendChild(checkbox);
+
             const nameCell = row.insertCell();
+
             nameCell.textContent = name;
 
-            // ID
             const idCell = row.insertCell();
-            idCell.textContent = stats.playerId || '';
-            idCell.classList.add('player-id-column');
 
-            // Сбор заплыва
+            idCell.textContent =
+                stats.playerId || '';
+
+            idCell.classList.add(
+                'player-id-column'
+            );
+
             const baCell = row.insertCell();
+
             baCell.textContent =
-                stats.totalConductions * multiplier;
+                stats.totalConductions
 
-            // Посещение заплыва
             const bmCell = row.insertCell();
+
             bmCell.textContent =
-                stats.totalParticipations * multiplier;
+                stats.totalParticipations
 
-            // Сбор котячьего заплыва
             const ksCell = row.insertCell();
+
             ksCell.textContent =
-                stats.kittenConductions * multiplier;
+                stats.kittenConductions
 
-            // Число котят
             const klCell = row.insertCell();
+
             klCell.textContent =
-                stats.kittenLedParticipants * multiplier;
+                stats.kittenLedParticipants
 
-            // Посещение котячьего заплыва
             const kpCell = row.insertCell();
-            kpCell.textContent =
-                stats.kittenParticipations * multiplier;
 
-            // ИС
+            kpCell.textContent =
+                stats.kittenParticipations
+
             const isCell = row.insertCell();
+
             isCell.textContent =
                 stats.participationsWithInfo;
         });
 
+        // Применяем состояние
+        // "Показывать ID"
         this.togglePlayerIdColumn();
     }
 
@@ -464,12 +552,14 @@ class SwimEventParser {
         const checkbox =
             document.getElementById('showPlayerId');
 
-        const showId = checkbox ? checkbox.checked : true;
+        const showId =
+            checkbox ? checkbox.checked : true;
 
         document
             .querySelectorAll('.player-id-column')
             .forEach(cell => {
-                cell.style.display = showId ? '' : 'none';
+                cell.style.display =
+                    showId ? '' : 'none';
             });
     }
 
@@ -491,21 +581,29 @@ class SwimEventParser {
     clearData() {
         document.getElementById('eventData').value = '';
 
-        document.querySelector('#resultsTable tbody').innerHTML = '';
+        document.querySelector(
+            '#resultsTable tbody'
+        ).innerHTML = '';
 
         this.participantStats.clear();
         this.processedReports = [];
 
-        document.getElementById('reportsContent').textContent =
+        document.getElementById(
+            'reportsContent'
+        ).textContent =
             'Нет обработанных отчётов';
 
+        // Создаём пустое состояние таблицы
         const tableBody =
-            document.querySelector('#resultsTable tbody');
+            document.querySelector(
+                '#resultsTable tbody'
+            );
 
         const row = tableBody.insertRow();
+
         const cell = row.insertCell();
 
-        cell.colSpan = 8;
+        cell.colSpan = 9;
         cell.className = 'empty-state';
 
         cell.textContent =
@@ -513,16 +611,24 @@ class SwimEventParser {
     }
 }
 
+
+// =============================================
+// ЗАПУСК ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
+// =============================================
+
 document.addEventListener('DOMContentLoaded', () => {
     new SwimEventParser();
 
     const tableBody =
-        document.querySelector('#resultsTable tbody');
+        document.querySelector(
+            '#resultsTable tbody'
+        );
 
     const row = tableBody.insertRow();
+
     const cell = row.insertCell();
 
-    cell.colSpan = 8;
+    cell.colSpan = 9;
     cell.className = 'empty-state';
 
     cell.textContent =
