@@ -2,7 +2,14 @@ class SwimEventParser {
     constructor() {
         this.participantStats = new Map();
         this.processedReports = [];
-        this.underwaterParser = new UnderwaterHuntParser(); // ← добавить
+
+        // Парсеры плашек
+        this.underwaterParser = new UnderwaterHuntParser();
+        this.diveHelpParser = new DiveHelpParser();
+        this.cleaningParser = new CleaningParser();
+        this.puParser = new PUParser();
+        this.trialSwimParser = new TrialSwimParser();
+
         this.init();
     }
 
@@ -36,8 +43,21 @@ class SwimEventParser {
         this.displayResults();
         this.displayReports();
 
+        // Парсеры плашек
         this.underwaterParser.parse(data);
         this.underwaterParser.display();
+
+        this.diveHelpParser.parse(data);
+        this.diveHelpParser.display();
+
+        this.cleaningParser.parse(data);
+        this.cleaningParser.display();
+
+        this.puParser.parse(data);
+        this.puParser.display();
+
+        this.trialSwimParser.parse(data);
+        this.trialSwimParser.display();
     }
 
     parseEvents(data) {
@@ -578,37 +598,30 @@ class SwimEventParser {
             this.processedReports.join('\n\n');
     }
 
-    clearData() {
+        clearData() {
         document.getElementById('eventData').value = '';
-
-        document.querySelector(
-            '#resultsTable tbody'
-        ).innerHTML = '';
+        document.querySelector('#resultsTable tbody').innerHTML = '';
 
         this.participantStats.clear();
         this.processedReports = [];
 
-        document.getElementById(
-            'reportsContent'
-        ).textContent =
+        document.getElementById('reportsContent').textContent =
             'Нет обработанных отчётов';
 
+        // Очистка плашек
         this.underwaterParser.clear();
+        this.diveHelpParser.clear();
+        this.cleaningParser.clear();
+        this.puParser.clear();
+        this.trialSwimParser.clear();
 
-        const tableBody =
-            document.querySelector(
-                '#resultsTable tbody'
-            );
-
+        const tableBody = document.querySelector('#resultsTable tbody');
         const row = tableBody.insertRow();
-
         const cell = row.insertCell();
 
         cell.colSpan = 9;
         cell.className = 'empty-state';
-
-        cell.textContent =
-            'Введите данные о заплывах для получения статистики';
+        cell.textContent = 'Введите данные о заплывах для получения статистики';
     }
 }
 
